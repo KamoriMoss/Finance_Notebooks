@@ -1,0 +1,115 @@
+import requests
+from bs4 import BeautifulSoup
+import re # Import regular expressions
+
+# NOTE: This is a conceptual example. Finding the exact URL and parsing logic
+# requires inspecting the specific SEC filing structure, which can vary.
+
+# 1. Find the URL to the latest 10-Q or 10-K filing for Truist (CIK: 0000009226)
+#    This step often involves querying the SEC EDGAR API or parsing the search results page.
+#    For demonstration, let's assume you've found the URL to the HTML version:
+filing_url = "URL_TO_TRUIST_FILING.htm" # Replace with the actual URL
+
+# --- Placeholder for fetching the actual URL ---
+# You might use the SEC EDGAR API: https://www.sec.gov/edgar/sec-api-documentation
+# Or libraries like 'sec-edgar-downloader'
+print(f"NOTE: You need to replace 'URL_TO_TRUIST_FILING.htm' with the actual URL from SEC EDGAR for CIK 0000009226.")
+
+# 2. Fetch the Filing Content (if you have a direct URL)
+try:
+    headers = {'User-Agent': 'Your Name Your Company Contact@example.com'} # SEC requests a user-agent
+    response = requests.get(filing_url, headers=headers)
+    response.raise_for_status() # Check for HTTP errors
+    html_content = response.text
+except requests.exceptions.RequestException as e:
+    print(f"Error fetching filing URL: {e}")
+    # Exit or handle error appropriately
+    exit()
+except NameError:
+     print(f"Error: filing_url is not defined. Please find the correct URL.")
+     exit()
+
+
+# 3. Parse the HTML
+soup = BeautifulSoup(html_content, 'html.parser')
+
+# 4. Locate the Consolidated Income Statement Table
+#    This is the most complex part and highly dependent on the filing's structure.
+#    You'll need to inspect the HTML source of the filing.
+#    Look for <table> tags, often preceded by headers like "CONSOLIDATED STATEMENTS OF INCOME"
+#    or similar variations. You might need to search for text within the document first.
+
+income_statement_table = None
+# Try finding based on a preceding header (adjust text as needed)
+header_tag = soup.find(lambda tag: tag.name in ['p', 'div', 'b', 'strong'] and 'CONSOLIDATED STATEMENTS OF INCOME' in tag.get_text(strip=True).upper())
+
+if header_tag:
+    # Find the next table sibling after the header
+    income_statement_table = header_tag.find_next('table')
+
+# Fallback: Search for tables containing typical income statement line items
+if not income_statement_table:
+    tables = soup.find_all('table')
+    for table in tables:
+        # Check for keywords within the table text
+        table_text = table.get_text().upper()
+        if 'NET INTEREST INCOME' in table_text and 'PROVISION FOR CREDIT LOSSES' in table_text and 'NET INCOME AVAILABLE TO COMMON SHAREHOLDERS' in table_text:
+             income_statement_table = table
+             print("Found table based on keywords.")
+             break # Stop searching once a likely table is found
+
+# 5. Extract Data from the Table
+if income_statement_table:
+    print("Income Statement Table Found. Extracting data...")
+    data = {}
+    rows = income_statement_table.find_all('tr')
+    
+    # Assuming the first row might contain headers like 'Three Months Ended...'
+    header_texts = [th.get_text(strip=True) for th in rows[0].find_all(['th', 'td'])] if rows else []
+    print(f"Detected Headers: {header_texts}") 
+    
+    # Find the column index for the most recent period (often the first numerical column)
+    # This logic might need refinement based on actual header content
+    recent_period_index = -1
+    for i, h in enumerate(header_texts):
+        # Look for patterns indicating a recent period (e.g., month/date)
+        # This is a guess; inspect the actual filing headers
+        if re.search(r'(Three|Nine|Twelve)\s+Months\s+Ended', h, re.IGNORECASE) or re.match(r'\d{1,2}/\d{1,2}/\d{4}', h):
+             # Check if subsequent columns exist and look like data
+             if i + 1 < len(header_texts): # Ensure there's a potential data column next
+                 recent_period_index = i + 1 # Assume data is in the *next* column after the label
+                 print(f"Assuming data column index: {recent_period_index} based on header '{h}'")
+                 break 
+    
+    if recent_period_index == -1 and len(header_texts) > 1:
+         recent_period_index = 1 # Default guess if pattern matching fails
+         print(f"Warning: Could not definitively identify data column, defaulting to index {recent_period_index}")
+
+
+    for row in rows[1:]: # Skip header row if processed
+        cols = row.find_all(['td', 'th'])
+        if len(cols) > recent_period_index:
+            # Clean up the line item description (remove extra spaces, :, etc.)
+            line_item = cols[0].get_text(strip=True).replace(':', '').strip()
+            # Clean up the value (remove $, commas, parentheses for negatives, handle non-breaking spaces)
+            value_str = cols[recent_period_index].get_text(strip=True)
+            value_str = value_str.replace('$', '').replace(',', '').replace('\u200b', '') # \u200b is zero-width space
+            # Handle negative numbers in parentheses
+            is_negative = value_str.startswith('(') and value_str.endswith(')')
+            if is_negative:
+                value_str = '-' + value_str[1:-1]
+                
+            # Add only if line_item is not empty and value looks numeric (or is a common placeholder like '--')
+            if line_item and (value_str == '--' or re.match(r'^-?\d+(\.\d+)?$', value_str)):
+                 data[line_item] = value_str
+            elif line_item:
+                 # Store potentially non-numeric values too, but maybe flag them
+                 data[line_item] = f"'{value_str}'" # Quote non-numeric values for clarity
+
+    # Print extracted data
+    print("\nExtracted Data (Most Recent Period):")
+    for item, value in data.items():
+        print(f"- {item}: {value}")
+
+else:
+    print("Could not find the Consolidated Income Statement table. Parsing logic needs adjustment based on the filing's HTML structure.")
