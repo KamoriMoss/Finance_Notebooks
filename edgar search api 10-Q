@@ -1,0 +1,23 @@
+import requests
+from bs4 import BeautifulSoup
+
+# Truist's CIK
+cik = '0000092230'
+
+# SEC Atom feed URL for latest 10-Qs
+url = f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={cik}&type=10-Q&count=10&output=atom"
+headers = {'User-Agent': 'Mozilla/5.0 (compatible; YourName/1.0; your@email.com)'}
+
+# Fetch and parse the feed
+response = requests.get(url, headers=headers)
+soup = BeautifulSoup(response.content, 'xml')
+
+# Extract the latest entry (most recent 10-Q)
+entry = soup.find('entry')
+if entry:
+    filing_link = entry.find('link')['href']
+    filing_date = entry.find('updated').text
+    print("Latest 10-Q Filing URL:", filing_link)
+    print("Filed on:", filing_date)
+else:
+    print("No 10-Q filings found.")
