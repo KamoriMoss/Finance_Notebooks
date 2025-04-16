@@ -3,8 +3,7 @@ from bs4 import BeautifulSoup
 import time
 
 def get_truist_10k_income_statement():
-    # Correct CIK for Truist Financial Corporation
-    cik = "0000092230"  # Replace with the correct CIK if necessary
+    cik = "0000092230"  # Truist Financial Corporation CIK
     base_url = "https://www.sec.gov"
 
     # Search for 10-K filings
@@ -14,12 +13,8 @@ def get_truist_10k_income_statement():
         "Accept-Language": "en-US,en;q=0.9",
     }
 
-    # Fetch the search page
     try:
         response = requests.get(search_url, headers=headers)
-        if response.status_code == 403:
-            print("Access forbidden: Make sure your User-Agent header is set appropriately.")
-            return
         if response.status_code != 200:
             print(f"Failed to fetch the search page. HTTP Status: {response.status_code}")
             return
@@ -42,7 +37,7 @@ def get_truist_10k_income_statement():
         if len(cols) < 2:
             continue
         filing_type = cols[0].text.strip().lower()
-        if "10-k" in filing_type:  # Case-insensitive match for "10-K"
+        if "10-k" in filing_type:
             filing_link = cols[1].find("a")["href"]
             filing_url = f"{base_url}{filing_link}"
             break
@@ -51,15 +46,12 @@ def get_truist_10k_income_statement():
         print("Could not find a 10-K filing.")
         return
 
-    # Introduce a short delay to respect rate limits
+    # Introduce a short delay
     time.sleep(1)
 
     # Access the 10-K filing page
     try:
         filing_response = requests.get(filing_url, headers=headers)
-        if filing_response.status_code == 403:
-            print("Access forbidden on the filing page.")
-            return
         if filing_response.status_code != 200:
             print(f"Failed to fetch the 10-K filing page. HTTP Status: {filing_response.status_code}")
             return
@@ -82,7 +74,7 @@ def get_truist_10k_income_statement():
         if len(cols) < 3:
             continue
         document_type = cols[3].text.strip().lower()
-        if "10-k" in document_type:  # Case-insensitive match for "10-K"
+        if "10-k" in document_type:
             document_link = cols[2].find("a")["href"]
             document_url = f"{base_url}{document_link}"
             break
@@ -97,9 +89,6 @@ def get_truist_10k_income_statement():
     # Access the HTML filing
     try:
         document_response = requests.get(document_url, headers=headers)
-        if document_response.status_code == 403:
-            print("Access forbidden on the 10-K document.")
-            return
         if document_response.status_code != 200:
             print(f"Failed to fetch the 10-K document. HTTP Status: {document_response.status_code}")
             return
@@ -110,13 +99,15 @@ def get_truist_10k_income_statement():
     document_soup = BeautifulSoup(document_response.content, "html.parser")
 
     # Extract the consolidated income statement
-    # Adjust the logic based on the 10-K document structure
-    income_statement = document_soup.find("table", string=lambda text: text and "Consolidated Income" in text)
-    if not income_statement:
-        print("Could not find the income statement.")
-        return
+    # Search for specific keywords to locate the income statement table
+    tables = document_soup.find_all("table")
+    for table in tables:
+        if table.find(string=lambda text: text and "Consolidated Income Statement" in text):
+            print("Income statement found!")
+            print(table.prettify())
+            return
 
-    print(income_statement.prettify())
+    print("Could not find the income statement.")
 
 # Run the function
 if __name__ == "__main__":
