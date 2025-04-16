@@ -1,0 +1,18 @@
+import requests
+from bs4 import BeautifulSoup
+
+# Define the URL for Truist's 10-K filings
+url = "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0000092230&type=10-K&count=10&output=atom"
+headers = {'User-Agent': 'Mozilla/5.0'}
+
+# Fetch the feed
+response = requests.get(url, headers=headers)
+soup = BeautifulSoup(response.content, 'xml')
+
+# Locate the first entry (latest filing)
+entry = soup.find('entry')
+if entry:
+    filing_link = entry.find('link')['href']
+    print("Latest 10-K Filing URL:", filing_link)
+else:
+    print("No 10-K filings found.")
