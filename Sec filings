@@ -1,0 +1,76 @@
+import requests
+from bs4 import BeautifulSoup
+
+def get_truist_10k_income_statement():
+    # Base URL for SEC EDGAR search
+    base_url = "https://www.sec.gov"
+
+    # Search for Truist Financial Corporation's 10-K filings
+    search_url = f"{base_url}/cgi-bin/browse-edgar?CIK=TRUIST&action=getcompany&type=10-K"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+
+    response = requests.get(search_url, headers=headers)
+    soup = BeautifulSoup(response.content, "html.parser")
+
+    # Find the first 10-K filing link
+    filing_table = soup.find("table", class_="tableFile2")
+    if not filing_table:
+        print("Could not find the filing table.")
+        return
+
+    rows = filing_table.find_all("tr")
+    for row in rows:
+        cols = row.find_all("td")
+        if len(cols) < 2:
+            continue
+        filing_type = cols[0].text.strip()
+        if filing_type == "10-K":
+            filing_link = cols[1].find("a")["href"]
+            filing_url = f"{base_url}{filing_link}"
+            break
+    else:
+        print("Could not find a 10-K filing.")
+        return
+
+    # Access the 10-K filing page
+    filing_response = requests.get(filing_url, headers=headers)
+    filing_soup = BeautifulSoup(filing_response.content, "html.parser")
+
+    # Find the link to the HTML filing
+    document_table = filing_soup.find("table", class_="tableFile", summary="Document Format Files")
+    if not document_table:
+        print("Could not find the document table.")
+        return
+
+    document_rows = document_table.find_all("tr")
+    for document_row in document_rows:
+        cols = document_row.find_all("td")
+        if len(cols) < 3:
+            continue
+        document_type = cols[3].text.strip()
+        if document_type == "10-K":
+            document_link = cols[2].find("a")["href"]
+            document_url = f"{base_url}{document_link}"
+            break
+    else:
+        print("Could not find the 10-K document.")
+        return
+
+    # Access the HTML filing
+    document_response = requests.get(document_url, headers=headers)
+    document_soup = BeautifulSoup(document_response.content, "html.parser")
+
+    # Extract the consolidated income statement
+    # You may need to adjust this based on the structure of the 10-K document
+    income_statement = document_soup.find("table")  # Assuming the income statement is in a <table>
+    if not income_statement:
+        print("Could not find the income statement.")
+        return
+
+    print(income_statement.prettify())
+
+# Run the function
+get_truist_10k_income_statement()
