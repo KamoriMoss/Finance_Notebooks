@@ -1,23 +1,30 @@
 import requests
 from bs4 import BeautifulSoup
+import time
 
 def get_truist_10k_income_statement():
     # Correct CIK for Truist Financial Corporation
-    cik = "0000092230"  # Replace with Truist's actual CIK if different
+    cik = "0000092230"  # Replace with the correct CIK if necessary
     base_url = "https://www.sec.gov"
 
     # Search for 10-K filings
     search_url = f"{base_url}/cgi-bin/browse-edgar?CIK={cik}&action=getcompany&type=10-K"
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36",
+        "User-Agent": "FinanceNotebooksBot/1.0 (Contact: your_email@example.com)",
         "Accept-Language": "en-US,en;q=0.9",
     }
 
-    response = requests.get(search_url, headers=headers)
-
-    # Check for HTTP errors
-    if response.status_code != 200:
-        print(f"Failed to fetch the search page. HTTP Status: {response.status_code}")
+    # Fetch the search page
+    try:
+        response = requests.get(search_url, headers=headers)
+        if response.status_code == 403:
+            print("Access forbidden: Make sure your User-Agent header is set appropriately.")
+            return
+        if response.status_code != 200:
+            print(f"Failed to fetch the search page. HTTP Status: {response.status_code}")
+            return
+    except requests.RequestException as e:
+        print(f"An error occurred while making the request: {e}")
         return
 
     soup = BeautifulSoup(response.content, "html.parser")
@@ -44,10 +51,20 @@ def get_truist_10k_income_statement():
         print("Could not find a 10-K filing.")
         return
 
+    # Introduce a short delay to respect rate limits
+    time.sleep(1)
+
     # Access the 10-K filing page
-    filing_response = requests.get(filing_url, headers=headers)
-    if filing_response.status_code != 200:
-        print(f"Failed to fetch the 10-K filing page. HTTP Status: {filing_response.status_code}")
+    try:
+        filing_response = requests.get(filing_url, headers=headers)
+        if filing_response.status_code == 403:
+            print("Access forbidden on the filing page.")
+            return
+        if filing_response.status_code != 200:
+            print(f"Failed to fetch the 10-K filing page. HTTP Status: {filing_response.status_code}")
+            return
+    except requests.RequestException as e:
+        print(f"An error occurred while accessing the filing page: {e}")
         return
 
     filing_soup = BeautifulSoup(filing_response.content, "html.parser")
@@ -74,10 +91,20 @@ def get_truist_10k_income_statement():
         print("Could not find the 10-K document.")
         return
 
+    # Introduce another short delay
+    time.sleep(1)
+
     # Access the HTML filing
-    document_response = requests.get(document_url, headers=headers)
-    if document_response.status_code != 200:
-        print(f"Failed to fetch the 10-K document. HTTP Status: {document_response.status_code}")
+    try:
+        document_response = requests.get(document_url, headers=headers)
+        if document_response.status_code == 403:
+            print("Access forbidden on the 10-K document.")
+            return
+        if document_response.status_code != 200:
+            print(f"Failed to fetch the 10-K document. HTTP Status: {document_response.status_code}")
+            return
+    except requests.RequestException as e:
+        print(f"An error occurred while accessing the 10-K document: {e}")
         return
 
     document_soup = BeautifulSoup(document_response.content, "html.parser")
@@ -92,4 +119,5 @@ def get_truist_10k_income_statement():
     print(income_statement.prettify())
 
 # Run the function
-get_truist_10k_income_statement()
+if __name__ == "__main__":
+    get_truist_10k_income_statement()
