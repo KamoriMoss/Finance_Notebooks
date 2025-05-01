@@ -18,7 +18,7 @@ def get_company_facts(cik):
     base_url = "https://data.sec.gov/api/xbrl/companyfacts/CIK{}.json"
     url = base_url.format(cik)
     # Use a descriptive User-Agent with your contact information
-    headers = {'User-Agent': 'kamorimoss@yahoo.com'}
+    headers = {'User-Agent': 'youremail@.com'}
     # *** Replace your_email@example.com with your actual email ***
 
     try:
