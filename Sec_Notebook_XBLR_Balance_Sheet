@@ -2,6 +2,9 @@ import requests
 import json
 from datetime import datetime
 
+#https://www.sec.gov/Archives/edgar/data/92230/000119312524136184/d820000dex991.htm
+#https://data.sec.gov/api/xbrl/companyfacts/CIK0000092230.json
+
 def get_company_facts(cik):
     """
     Retrieves all company facts (XBRL data) in JSON format for a given CIK.
@@ -15,7 +18,7 @@ def get_company_facts(cik):
     base_url = "https://data.sec.gov/api/xbrl/companyfacts/CIK{}.json"
     url = base_url.format(cik)
     # Use a descriptive User-Agent with your contact information
-    headers = {'User-Agent': 'youremail.example.com'}
+    headers = {'User-Agent': 'kamorimoss@yahoo.com'}
     # *** Replace your_email@example.com with your actual email ***
 
     try:
@@ -83,7 +86,7 @@ def find_latest_balance_sheet(financial_data):
     # Key balance sheet concepts to extract
     # Note: Companies might use slightly different tags. These are common ones.
     # LiabilitiesAndStockholdersEquity should equal Assets.
-    concepts_to_find = ['Assets', 'Liabilities', 'StockholdersEquity', 'LiabilitiesAndStockholdersEquity']
+    concepts_to_find = ['Assets', 'Liabilities', 'StockholdersEquity', 'LiabilitiesAndStockholdersEquity','LongTermDebt','Goodwill','NoninterestBearingDepositLiabilities']
 
     for concept in concepts_to_find:
         if concept in gaap_facts and 'units' in gaap_facts[concept] and 'USD' in gaap_facts[concept]['units']:
@@ -140,7 +143,15 @@ if __name__ == "__main__":
             assets = balance_sheet_info['Data'].get('Assets', 0)
             liab = balance_sheet_info['Data'].get('Liabilities', 0)
             equity = balance_sheet_info['Data'].get('StockholdersEquity', 0)
-            liab_equity = balance_sheet_info['Data'].get('LiabilitiesAndStockholdersEquity', None) # Get this value if reported
+            liab_equity = balance_sheet_info['Data'].get('LiabilitiesAndStockholdersEquity', None)
+            NoncurrentLiab = balance_sheet_info['Data'].get('NoncurrentLiabilities', 0)
+            CurrentLiab = balance_sheet_info['Data'].get('CurrentLiabilities', 0)
+            NoncurrentAssets = balance_sheet_info['Data'].get('NoncurrentAssets', 0)
+            CurrentAssets = balance_sheet_info['Data'].get('CurrentAssets', 0)
+            NonInterestIncome = balance_sheet_info['Data'].get('NonInterestIncome', 0)
+
+
+             # Get this value if reported
 
             if isinstance(assets, (int, float)) and isinstance(liab, (int, float)) and isinstance(equity, (int, float)):
                  if abs(assets - (liab + equity)) / assets < 0.01: # Allow for small rounding diffs (1%)
@@ -156,5 +167,7 @@ if __name__ == "__main__":
 
         else:
             print(f"Could not extract balance sheet information for CIK {company_cik}")
+    else:
+        print(f"Could not retrieve financial data for CIK {company_cik}")
     else:
         print(f"Could not retrieve financial data for CIK {company_cik}")
