@@ -1,1 +1,160 @@
+import requests
+import json
+from datetime import datetime
 
+def get_company_facts(cik):
+    """
+    Retrieves all company facts (XBRL data) in JSON format for a given CIK.
+
+    Args:
+        cik (str): The Central Index Key (CIK) of the company (10 digits).
+
+    Returns:
+        dict: A dictionary containing the company's XBRL data, or None if an error occurs.
+    """
+    base_url = "https://data.sec.gov/api/xbrl/companyfacts/CIK{}.json"
+    url = base_url.format(cik)
+    # Use a descriptive User-Agent with your contact information
+    headers = {'User-Agent': 'youremail.example.com'}
+    # *** Replace your_email@example.com with your actual email ***
+
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        print(f"Successfully fetched data for CIK {cik}") # Debug print
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching data for CIK {cik}: {e}")
+        return None
+
+def find_latest_balance_sheet(financial_data):
+    """
+    Finds key balance sheet items from the most recent filing in the data.
+
+    Args:
+        financial_data (dict): The parsed JSON data from get_company_facts.
+
+    Returns:
+        dict: A dictionary containing balance sheet info, or None if not found.
+    """
+    if not financial_data or 'facts' not in financial_data or 'us-gaap' not in financial_data['facts']:
+        print("Required data structure ('facts' -> 'us-gaap') not found.")
+        return None
+
+    gaap_facts = financial_data['facts']['us-gaap']
+    latest_filing_info = None
+    latest_filed_date = datetime.min
+
+    # Concepts likely to appear in 10-Q/10-K filings
+    # Using 'Assets' as a proxy to find recent filings
+    if 'Assets' in gaap_facts and 'units' in gaap_facts['Assets'] and 'USD' in gaap_facts['Assets']['units']:
+        for fact in gaap_facts['Assets']['units']['USD']:
+             # Consider only 10-K and 10-Q, ignore amendments for simplicity for now
+            if fact.get('form') in ['10-K', '10-Q']:
+                try:
+                    filed_date = datetime.strptime(fact.get('filed'), '%Y-%m-%d')
+                    if filed_date > latest_filed_date:
+                        latest_filed_date = filed_date
+                        # Balance sheets are snapshots ('instant') usually matching 'end' date
+                        latest_filing_info = {
+                            'filed': fact.get('filed'),
+                            'end_date': fact.get('end'), # The date the balance sheet represents
+                            'form': fact.get('form'),
+                            'fy': fact.get('fy'),
+                            'fp': fact.get('fp'),
+                            'accn': fact.get('accn') # Accession number is the best unique ID
+                        }
+                except (ValueError, TypeError) as e:
+                    # Ignore facts with missing or invalid dates/forms
+                    # print(f"Skipping fact due to missing/invalid data: {fact} - Error: {e}")
+                    continue
+
+    if not latest_filing_info:
+        print("Could not determine the latest 10-K or 10-Q filing information.")
+        return None
+
+    print(f"Identified latest filing: {latest_filing_info['form']} filed on {latest_filing_info['filed']} for period ending {latest_filing_info['end_date']} (FY{latest_filing_info['fy']}{latest_filing_info['fp']})")
+
+    balance_sheet = {
+        'Filing Info': latest_filing_info,
+        'Data': {}
+    }
+
+    # Key balance sheet concepts to extract
+    # Note: Companies might use slightly different tags. These are common ones.
+    # LiabilitiesAndStockholdersEquity should equal Assets.
+    concepts_to_find = ['Assets', 'Liabilities', 'StockholdersEquity', 'LiabilitiesAndStockholdersEquity']
+
+    for concept in concepts_to_find:
+        if concept in gaap_facts and 'units' in gaap_facts[concept] and 'USD' in gaap_facts[concept]['units']:
+            # Find the data point matching the latest filing's accession number and end date
+            found_fact = None
+            for fact in gaap_facts[concept]['units']['USD']:
+                 # Match primarily on accession number and end date for accuracy
+                 if fact.get('accn') == latest_filing_info['accn'] and fact.get('end') == latest_filing_info['end_date']:
+                    found_fact = fact
+                    break # Found the specific fact for this concept in this filing
+
+            if found_fact:
+                balance_sheet['Data'][concept] = found_fact.get('val')
+            else:
+                # Attempt fallback match on filed date + end date if accn match failed (less reliable)
+                 found_fact_fallback = None
+                 for fact in gaap_facts[concept]['units']['USD']:
+                    if fact.get('filed') == latest_filing_info['filed'] and fact.get('end') == latest_filing_info['end_date'] and fact.get('form') == latest_filing_info['form']:
+                          found_fact_fallback = fact
+                          break
+                 if found_fact_fallback:
+                      print(f"Warning: Used fallback match for {concept} based on filed/end date.")
+                      balance_sheet['Data'][concept] = found_fact_fallback.get('val')
+                 else:
+                      balance_sheet['Data'][concept] = 'Not Found in this filing'
+                      print(f"Warning: Could not find '{concept}' for filing accn {latest_filing_info['accn']} ending {latest_filing_info['end_date']}")
+        else:
+            balance_sheet['Data'][concept] = 'Concept Not Available'
+            print(f"Warning: Concept '{concept}' not found in us-gaap data.")
+
+
+    return balance_sheet
+
+if __name__ == "__main__":
+    company_cik = "0000092230"  # Truist Financial Corporation's CIK
+    # --- Make sure to replace the placeholder email in get_company_facts ---
+    financial_data = get_company_facts(company_cik)
+
+    if financial_data:
+        balance_sheet_info = find_latest_balance_sheet(financial_data)
+        if balance_sheet_info:
+            print("\n--- Most Recent Balance Sheet Information ---")
+            print(f"Company CIK: {company_cik}")
+            print(f"Source Filing: {balance_sheet_info['Filing Info']['form']} (Filed: {balance_sheet_info['Filing Info']['filed']})")
+            print(f"Balance Sheet Date (Period End): {balance_sheet_info['Filing Info']['end_date']}")
+            print("\nKey Figures (USD):")
+            for concept, value in balance_sheet_info['Data'].items():
+                if isinstance(value, (int, float)):
+                    print(f"  {concept}: ${value:,.0f}") # Format as currency, no decimals
+                else:
+                    print(f"  {concept}: {value}")
+
+            # Verification check (optional)
+            assets = balance_sheet_info['Data'].get('Assets', 0)
+            liab = balance_sheet_info['Data'].get('Liabilities', 0)
+            equity = balance_sheet_info['Data'].get('StockholdersEquity', 0)
+            liab_equity = balance_sheet_info['Data'].get('LiabilitiesAndStockholdersEquity', None) # Get this value if reported
+
+            if isinstance(assets, (int, float)) and isinstance(liab, (int, float)) and isinstance(equity, (int, float)):
+                 if abs(assets - (liab + equity)) / assets < 0.01: # Allow for small rounding diffs (1%)
+                      print("\nVerification: Assets approx. equals Liabilities + StockholdersEquity")
+                 else:
+                      print(f"\nVerification Warning: Assets (${assets:,.0f}) does not closely match Liabilities (${liab:,.0f}) + Equity (${equity:,.0f}) = (${liab+equity:,.0f})")
+                 if liab_equity is not None and isinstance(liab_equity, (int, float)):
+                      if abs(assets - liab_equity) / assets < 0.01:
+                           print("Verification: Assets approx. equals reported LiabilitiesAndStockholdersEquity")
+                      else:
+                           print(f"Verification Warning: Assets (${assets:,.0f}) does not closely match reported LiabilitiesAndStockholdersEquity (${liab_equity:,.0f})")
+
+
+        else:
+            print(f"Could not extract balance sheet information for CIK {company_cik}")
+    else:
+        print(f"Could not retrieve financial data for CIK {company_cik}")
