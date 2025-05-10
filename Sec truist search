@@ -1,0 +1,58 @@
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+
+CIK = '0000092230'  # Truist's SEC CIK
+headers = {'User-Agent': 'Mozilla/5.0'}
+base_url = "https://www.sec.gov"
+
+# Step 1: Get latest 10-K filing
+rss_url = f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={CIK}&type=10-K&count=10&owner=exclude&output=atom"
+rss = requests.get(rss_url, headers=headers)
+soup = BeautifulSoup(rss.content, 'xml')
+entry = soup.find('entry')
+filing_url = entry.find('link')['href']
+
+# Step 2: Get the filing documents
+filing_page = requests.get(filing_url, headers=headers)
+soup = BeautifulSoup(filing_page.text, 'html.parser')
+table = soup.find('table', class_='tableFile', summary='Document Format Files')
+
+instance_url = None
+for row in table.find_all('tr')[1:]:
+    cols = row.find_all('td')
+    if len(cols) > 3:
+        filename = cols[2].text.strip()
+        if filename.endswith('.xml') and 'ins' in filename.lower():
+            instance_url = base_url + cols[2].a['href']
+            break
+
+# Step 3: Parse XBRL instance document
+if instance_url:
+    xbrl_resp = requests.get(instance_url, headers=headers)
+    xbrl_soup = BeautifulSoup(xbrl_resp.content, 'lxml')
+
+    ns = {'us-gaap': 'http://fasb.org/us-gaap/2023-01-31'}  # update if needed
+
+    data = {}
+    for tag in xbrl_soup.find_all():
+        if tag.name and tag.name.startswith('us-gaap:') and tag.get('contextref') and tag.text.strip():
+            label = tag.name.split(':')[-1]
+            value = tag.text.strip()
+            data.setdefault(label, []).append(value)
+
+    # Show a few common income statement line items
+    income_statement_items = [
+        'Revenues', 'NetIncomeLoss', 'OperatingIncomeLoss',
+        'InterestIncomeExpenseNet', 'NoninterestIncome', 'NoninterestExpense'
+    ]
+
+    print("\n===== CONSOLIDATED INCOME STATEMENT (from XBRL) =====\n")
+    for item in income_statement_items:
+        values = data.get(item)
+        if values:
+            print(f"{item}: {values[0]}")
+        else:
+            print(f"{item}: Not found")
+else:
+    print("XBRL instance document not found.")
