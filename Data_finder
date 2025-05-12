@@ -1,0 +1,156 @@
+import pandas as pd
+from datetime import datetime
+import os
+import requests
+
+columns = [
+	"Period", "Noninterest income Account", "Year Prior", "Year Current", "B/(W)",
+	"Total MOE Center B/(W)", "Total MOE Center B/(W)", "Total COVID-19 B/(W)",
+	"Total COVID-19 B/(W)", "Total MOE Center B/(W)", "Total MOE Center B/(W)",
+	"Total COVID-19 B/(W)", "Total COVID-19 B/(W)", "Total MOE Center B/(W)",
+	"Total MOE Center B/(W)", "Total COVID-19 B/(W)", "Total COVID-19 B/(W)",
+	"B/(W) net of MOE & COVID-19"
+]
+
+compiled_data = pd.DataFrame([], columns=columns)
+
+# Get current month
+current_month = datetime.now().month
+current_month_name = datetime.now().strftime("%B")
+
+
+#    "Wholesale  Banking Segment EOC 0425"  # Example of the Document Name to look for
+
+
+#Nagivate  to the Tab called CM v PM 
+# Open the Excel file and navigate to the "CM v PM" sheet
+import pandas as pd
+from datetime import datetime
+import os
+import requests
+
+columns = [
+	"Period", "Noninterest income Account", "Year Prior", "Year Current", "B/(W)",
+	"Total MOE Center B/(W)", "Total MOE Center B/(W)", "Total COVID-19 B/(W)",
+	"Total COVID-19 B/(W)", "Total MOE Center B/(W)", "Total MOE Center B/(W)",
+	"Total COVID-19 B/(W)", "Total COVID-19 B/(W)", "Total MOE Center B/(W)",
+	"Total MOE Center B/(W)", "Total COVID-19 B/(W)", "Total COVID-19 B/(W)",
+	"B/(W) net of MOE & COVID-19"
+]
+
+compiled_data = pd.DataFrame([], columns=columns)
+
+# Get current month
+current_month = datetime.now().month
+current_month_name = datetime.now().strftime("%B")
+
+
+#    "Wholesale  Banking Segment EOC 0425"  # Example of the Document Name to look for
+
+
+#Nagivate  to the Tab called CM v PM 
+# Open the Excel file and navigate to the "CM v PM" sheet
+
+# Try to find the file in different locations
+
+# Configuration for finding and processing Excel files
+
+# IMPORTANT: Specify the directory where your Excel files are located.
+# For example: "C:/Users/YourUser/Documents/ExcelReports" or "/mnt/shared/reports"
+# Make sure to use forward slashes '/' or escape backslashes '\\' in the path.
+excel_files_directory = "REPLACE_WITH_YOUR_EXCEL_FILES_DIRECTORY_PATH"
+
+# List of segment names to look for in filenames.
+# Ensure these names exactly match the part of the filename.
+# Example: if filename is "Wholesale  Banking Segment EOC...", then "Wholesale  Banking" should be in this list.
+segments_to_process = ["Wholesale Banking", "General Accounting", "Consumer"] # Add more as needed
+
+# The fixed day part of the date in the filename, e.g., "25" if filenames are like "...EOC 0425.xlsx"
+# If the day changes or is not fixed, this logic will need adjustment.
+filename_day_part = "25"
+
+# Sheet names to extract data from within each Excel file
+# The prompt mentioned "CM v PM" and "YTD" (also "YTDD" once, assuming "YTD" is correct based on repetition)
+sheets_to_extract_from = ["CM v PM", "YTD"] # Adjust if "YTDD" or other names are correct
+
+# --- End of Configuration ---
+
+# Determine the current month string for filenames (e.g., "04" for April)
+# current_month_name is already defined in your script
+current_month_str_for_filename = datetime.now().strftime("%m")
+date_suffix_for_filename = f"{current_month_str_for_filename}{filename_day_part}" # e.g., "0425"
+
+# Check if the specified directory exists
+if excel_files_directory == "REPLACE_WITH_YOUR_EXCEL_FILES_DIRECTORY_PATH" or not os.path.isdir(excel_files_directory):
+    print(f"Error: The Excel files directory is not set or does not exist: '{excel_files_directory}'")
+    print("Please update the 'excel_files_directory' variable at the beginning of this code block with the correct path.")
+else:
+    print(f"Searching for Excel files in directory: {excel_files_directory}")
+    print(f"Looking for files related to current month: {current_month_name} (filename date suffix: {date_suffix_for_filename})")
+
+    files_processed_count = 0
+    for segment_name in segments_to_process:
+        # Construct the expected prefix for the filename
+        # Example: "Wholesale Banking Segment EOC 0425"
+        expected_filename_prefix = f"{segment_name} Segment EOC {date_suffix_for_filename}"
+        
+        found_segment_file = False
+        for item_name in os.listdir(excel_files_directory):
+            full_item_path = os.path.join(excel_files_directory, item_name)
+            
+            # Check if it's a file, starts with the expected prefix, and is an Excel file
+            if os.path.isfile(full_item_path) and \
+               item_name.startswith(expected_filename_prefix) and \
+               (item_name.lower().endswith(".xlsx") or item_name.lower().endswith(".xls")):
+                
+                print(f"\nProcessing file: {item_name} (for segment: {segment_name})")
+                files_processed_count += 1
+                found_segment_file = True
+                
+                try:
+                    excel_file = pd.ExcelFile(full_item_path)
+                    
+                    for sheet_name in sheets_to_extract_from:
+                        if sheet_name in excel_file.sheet_names:
+                            print(f"  Reading sheet: '{sheet_name}'")
+                            try:
+                                # Read the sheet. Pandas handles de-duplication of column names from the sheet.
+                                df_from_sheet = pd.read_excel(excel_file, sheet_name=sheet_name)
+                                
+                                # Align df_from_sheet with compiled_data.columns.
+                                # This ensures that only columns defined in the initial `columns` list are kept,
+                                # and missing ones are added as NaN. It relies on column names matching
+                                # (after pandas' de-duplication for both `compiled_data` and `df_from_sheet`).
+                                df_aligned = df_from_sheet.reindex(columns=compiled_data.columns)
+                                
+                                compiled_data = pd.concat([compiled_data, df_aligned], ignore_index=True)
+                                print(f"    Successfully appended data from sheet '{sheet_name}'.")
+                                
+                            except Exception as e_sheet:
+                                print(f"    Error reading or processing sheet '{sheet_name}' from {item_name}: {e_sheet}")
+                        else:
+                            print(f"  Sheet '{sheet_name}' not found in file {item_name}.")
+                except Exception as e_file:
+                    print(f"  Error opening or processing Excel file {item_name}: {e_file}")
+                
+                # Assuming only one file per segment matches the pattern for the current month/day.
+                # If multiple files for the same segment could match (e.g., different versions),
+                # and all should be processed, remove this 'break'.
+                # If only the first one found should be processed, this 'break' is correct.
+                break 
+        
+        if not found_segment_file:
+            print(f"\nNo matching file found for segment: '{segment_name}' with prefix '{expected_filename_prefix}'.")
+
+    if files_processed_count == 0:
+        print(f"\nNo Excel files matching the criteria were found or processed in {excel_files_directory}.")
+
+# Display summary of compiled data
+print("\n--- Compilation Summary ---")
+if not compiled_data.empty:
+    print(f"Total rows in compiled_data: {len(compiled_data)}")
+    # For detailed inspection, you can uncomment these lines:
+    # print("Columns in compiled_data:", compiled_data.columns.tolist())
+    # print("First 5 rows of compiled_data:\n", compiled_data.head())
+else:
+    print("No data was compiled into the 'compiled_data' DataFrame.")
