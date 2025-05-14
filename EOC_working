@@ -1,0 +1,50 @@
+import os
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
+
+def build_filename(month_offset=0):
+    # Generate target filename string based on month offset
+    target_date = datetime.now() + relativedelta(months=month_offset)
+    month_number = target_date.strftime("%m")
+    year_suffix = target_date.strftime("%y")
+    return f"Wholesale Banking Segment EOC {month_number}{year_suffix}"
+
+def find_exact_excel_file(folder_path, filename_base):
+    matches = []
+    for file in os.listdir(folder_path):
+        file_path = os.path.join(folder_path, file)
+
+        # Skip folders
+        if not os.path.isfile(file_path):
+            continue
+
+        file_name, file_ext = os.path.splitext(file)
+
+        # Only include Excel file types
+        if file_ext.lower() not in ['.xlsx', '.xls', '.xlsm']:
+            continue
+
+        # Exact match on filename (case-insensitive)
+        if file_name.strip().lower() == filename_base.strip().lower():
+            matches.append(file_path)
+
+    return matches
+
+# === Example usage ===
+folder = r'C:\path\to\your\folder'  # <-- Update this path
+
+current_filename = build_filename(month_offset=0)
+prior_filename = build_filename(month_offset=-1)
+
+current_files = find_exact_excel_file(folder, current_filename)
+prior_files = find_exact_excel_file(folder, prior_filename)
+
+print(f"\nSearching for: {current_filename}")
+print("Found:" if current_files else "Not found.")
+for f in current_files:
+    print(f)
+
+print(f"\nSearching for: {prior_filename}")
+print("Found:" if prior_files else "Not found.")
+for f in prior_files:
+    print(f)
