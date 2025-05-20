@@ -64,3 +64,31 @@ combined_df <- map_dfr(sheets, process_sheet)
 
 # Step 5: Save to CSV (optional)
 write.csv(combined_df, "combined_EOC_with_date.csv", row.names = FALSE)
+
+library(readxl)
+library(dplyr)
+library(lubridate)
+library(purrr)
+
+# Path to your Excel file
+excel_file <- "Historical_EOCs_2020_2025.xlsx"
+
+# Get sheet names
+sheets <- excel_sheets(excel_file)
+
+# Function to process each sheet
+process_sheet <- function(sheet_name) {
+  df <- read_excel(excel_file, sheet = sheet_name)
+
+  cleaned_df <- df %>%
+    slice(-(1:9)) %>%                                # Remove first 9 rows
+    mutate(date = dmy(paste0("01 ", sheet_name)))    # Add date column
+
+  return(cleaned_df)
+}
+
+# Apply function to all sheets and combine into one dataframe
+combined_df <- map_dfr(sheets, process_sheet)
+
+# Optional: Save to CSV
+write.csv(combined_df, "combined_cleaned_EOC.csv", row.names = FALSE)
