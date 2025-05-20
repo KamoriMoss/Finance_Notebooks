@@ -37,3 +37,30 @@ master_df <- map_dfr(sheets, process_sheet)
 
 # Save to a CSV (or Excel if preferred)
 write.csv(master_df, "cleaned_EOC_data.csv", row.names = FALSE)
+
+library(readxl)
+library(dplyr)
+library(lubridate)
+library(purrr)
+
+# Step 1: Your Excel file name
+excel_file <- "Historical_EOCs_2020_2025.xlsx"
+
+# Step 2: Get sheet names (e.g., "March 2025", "April 2025", etc.)
+sheets <- excel_sheets(excel_file)
+
+# Step 3: Function to read each sheet and add a `date` column
+process_sheet <- function(sheet_name) {
+  df <- read_excel(excel_file, sheet = sheet_name)
+
+  df <- df %>%
+    mutate(date = dmy(paste0("01 ", sheet_name)))  # Adds date from sheet name
+
+  return(df)
+}
+
+# Step 4: Apply to all sheets and combine into one dataframe
+combined_df <- map_dfr(sheets, process_sheet)
+
+# Step 5: Save to CSV (optional)
+write.csv(combined_df, "combined_EOC_with_date.csv", row.names = FALSE)
