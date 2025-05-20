@@ -92,3 +92,37 @@ combined_df <- map_dfr(sheets, process_sheet)
 
 # Optional: Save to CSV
 write.csv(combined_df, "combined_cleaned_EOC.csv", row.names = FALSE)
+
+library(readxl)
+library(dplyr)
+library(purrr)
+
+# Step 1: Define your Excel file path
+excel_file <- "Historical_EOCs_2020_2025.xlsx"
+
+# Step 2: Get all sheet names (e.g., "March 2025", "April 2025")
+sheets <- excel_sheets(excel_file)
+
+# Step 3: Function to clean each sheet
+process_sheet <- function(sheet_name) {
+  df <- read_excel(excel_file, sheet = sheet_name)
+
+  # Extract month and year from sheet name
+  parts <- strsplit(sheet_name, " ")[[1]]
+  month <- parts[1]
+  year <- as.numeric(parts[2])
+
+  # Remove top 9 rows, add month and year columns
+  df_clean <- df %>%
+    slice(-(1:9)) %>%
+    mutate(month = month,
+           year = year)
+
+  return(df_clean)
+}
+
+# Step 4: Apply to all sheets and combine
+combined_df <- map_dfr(sheets, process_sheet)
+
+# Step 5: Export combined data to CSV (optional)
+write.csv(combined_df, "combined_cleaned_EOC.csv", row.names = FALSE)
