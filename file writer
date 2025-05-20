@@ -1,0 +1,27 @@
+import pandas as pd
+from openpyxl import load_workbook
+
+def add_sheets_to_excel(file_path):
+    # Load existing workbook and get sheet names
+    try:
+        workbook = load_workbook(file_path)
+        existing_sheets = workbook.sheetnames
+    except FileNotFoundError:
+        print(f"File '{file_path}' not found.")
+        return
+
+    # Create a single ExcelWriter instance
+    with pd.ExcelWriter(file_path, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
+        # Add 'Accounts' sheet if missing
+        if 'Accounts' not in existing_sheets:
+            pd.DataFrame().to_excel(writer, sheet_name='Accounts', index=False)
+            print("Added worksheet 'Accounts'")
+        else:
+            print("Worksheet 'Accounts' already exists")
+
+        # Add 'Compiled_Data' sheet if missing
+        if 'Compiled_Data' not in existing_sheets:
+            pd.DataFrame().to_excel(writer, sheet_name='Compiled_Data', index=False)
+            print("Added worksheet 'Compiled_Data'")
+        else:
+            print("Worksheet 'Compiled_Data' already exists")
