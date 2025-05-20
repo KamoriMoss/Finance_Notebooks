@@ -126,3 +126,21 @@ combined_df <- map_dfr(sheets, process_sheet)
 
 # Step 5: Export combined data to CSV (optional)
 write.csv(combined_df, "combined_cleaned_EOC.csv", row.names = FALSE)
+
+library(dplyr)
+
+# Step 1: Convert month to a date-like format so we can order it
+month_levels <- month.name  # Full month names
+combined_df <- combined_df %>%
+  mutate(month = factor(month, levels = month_levels))
+
+# Step 2: Summarize total by month and year
+monthly_summary <- combined_df %>%
+  group_by(year, month) %>%
+  summarise(total_expense = sum(total_expense_column, na.rm = TRUE)) %>%
+  arrange(year, month)
+
+# Step 3: Calculate variance and % change
+monthly_variance <- monthly_summary %>%
+  mutate(variance = total_expense - lag(total_expense),
+         percent_change = (variance / lag(total_expense)) * 100)
