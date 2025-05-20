@@ -1,0 +1,8 @@
+library(dplyr)
+
+variance_df <- Historical_EOCs_2020_2025_practice %>%
+  select(Metric, Value_2024, Value_2025) %>%
+  mutate(
+    Variance = Value_2025 - Value_2024,
+    Percent_Variance = (Variance / abs(Value_2024)) * 100
+  )
