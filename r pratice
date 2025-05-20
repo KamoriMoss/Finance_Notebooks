@@ -6,3 +6,34 @@ variance_df <- Historical_EOCs_2020_2025_practice %>%
     Variance = Value_2025 - Value_2024,
     Percent_Variance = (Variance / abs(Value_2024)) * 100
   )
+
+library(readxl)
+library(dplyr)
+library(janitor)
+library(lubridate)
+library(purrr)
+
+# Path to your Excel file
+excel_file <- "Historical_EOCs_2020_2025.xlsx"
+
+# Get all sheet names
+sheets <- excel_sheets(excel_file)
+
+# Function to process one sheet
+process_sheet <- function(sheet_name) {
+  df <- read_excel(excel_file, sheet = sheet_name)
+
+  cleaned <- df %>%
+    clean_names() %>%                    # standardizes column names
+    slice(-(1:9)) %>%                   # removes first 9 rows
+    select(where(~ !all(is.na(.)))) %>% # removes columns that are all NA
+    mutate(date = dmy(paste0("01 ", sheet_name)))  # adds date from sheet name
+  
+  return(cleaned)
+}
+
+# Apply to all sheets and bind into one master dataframe
+master_df <- map_dfr(sheets, process_sheet)
+
+# Save to a CSV (or Excel if preferred)
+write.csv(master_df, "cleaned_EOC_data.csv", row.names = FALSE)
