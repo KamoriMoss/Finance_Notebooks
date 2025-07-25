@@ -15,63 +15,17 @@ def convert_to_proper_type(value):
     except:
         return str(value).strip()
 
-def combine_explanations_text_only(df):
-    """
-    Combines only TEXT from 'explanation 1' and 'explanation 2' into 'Explanation' column
-    (ignores numbers)
-    """
-    # Convert both columns to proper types
-    df['explanation 1'] = df['explanation 1'].apply(convert_to_proper_type)
-    df['explanation 2'] = df['explanation 2'].apply(convert_to_proper_type)
-    
-    # Combine only text values (ignore numbers)
-    df['Explanation'] = df.apply(lambda row: 
-        ' | '.join([str(x) for x in [row['explanation 1'], row['explanation 2']] 
-                   if x is not None and isinstance(x, str)]), axis=1)
-    
-    # Replace empty strings with None
-    df['Explanation'] = df['Explanation'].replace('', None)
-    
-    return df
+# Apply to your existing 'result' DataFrame
+# Convert both columns to proper types
+result['Explanation 1'] = result['Explanation 1'].apply(convert_to_proper_type)
+result['Explanation 2'] = result['Explanation 2'].apply(convert_to_proper_type)
 
-def combine_explanations_all(df):
-    """
-    Combines ALL values (text AND numbers) from explanation columns
-    """
-    # Convert both columns to proper types
-    df['explanation 1'] = df['explanation 1'].apply(convert_to_proper_type)
-    df['explanation 2'] = df['explanation 2'].apply(convert_to_proper_type)
-    
-    # Combine into new column
-    df['Explanation'] = df.apply(lambda row: 
-        ' | '.join([str(x) for x in [row['explanation 1'], row['explanation 2']] 
-                   if x is not None]), axis=1)
-    
-    # Replace empty strings with None
-    df['Explanation'] = df['Explanation'].replace('', None)
-    
-    return df
+# Create the combined 'Explanation' column
+result['Explanation'] = result.apply(lambda row: 
+    ' | '.join([str(x) for x in [row['Explanation 1'], row['Explanation 2']] 
+               if x is not None]), axis=1)
 
-# Example usage
-if __name__ == "__main__":
-    # Sample data
-    df = pd.DataFrame({
-        'explanation 1': ['Text here', '123', 'More text', '45.6', None, ''],
-        'explanation 2': ['Other text', '789', None, 'Final text', '99.9', 'Last'],
-        'id': [1, 2, 3, 4, 5, 6]
-    })
-    
-    print("Before:")
-    print(df)
-    
-    # Process the DataFrame - TEXT ONLY
-    df_text_only = combine_explanations_text_only(df.copy())
-    
-    print("\nAfter (TEXT ONLY):")
-    print(df_text_only[['explanation 1', 'explanation 2', 'Explanation']])
-    
-    # Process the DataFrame - ALL VALUES
-    df_all = combine_explanations_all(df.copy())
-    
-    print("\nAfter (ALL VALUES):")
-    print(df_all[['explanation 1', 'explanation 2', 'Explanation']])
+# Replace empty strings with None
+result['Explanation'] = result['Explanation'].replace('', None)
+
+print("Done! Your 'result' DataFrame now has an 'Explanation' column.")
