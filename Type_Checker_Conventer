@@ -21,11 +21,17 @@ result['Explanation 1'] = result['Explanation 1'].apply(convert_to_proper_type)
 result['Explanation 2'] = result['Explanation 2'].apply(convert_to_proper_type)
 
 # Create the combined 'Explanation' column
-result['Explanation'] = result.apply(lambda row: 
-    ' | '.join([str(x) for x in [row['Explanation 1'], row['Explanation 2']] 
-               if x is not None]), axis=1)
+def combine_values(row):
+    valid_values = [str(x) for x in [row['Explanation 1'], row['Explanation 2']] 
+                   if x is not None]
+    
+    if len(valid_values) == 0:
+        return None  # Return None if no valid values
+    elif len(valid_values) == 1:
+        return valid_values[0]  # Return single value without separator
+    else:
+        return ' | '.join(valid_values)  # Join multiple values
 
-# Replace empty strings with None
-result['Explanation'] = result['Explanation'].replace('', None)
+result['Explanation'] = result.apply(combine_values, axis=1)
 
 print("Done! Your 'result' DataFrame now has an 'Explanation' column.")
