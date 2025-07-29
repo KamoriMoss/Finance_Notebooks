@@ -1,57 +1,54 @@
 import os
 import shutil
 
-# Set your main directory path
+# Set the path to the directory containing your files and folders
 directory = r"C:\path\to\your\directory"
 
-# Define keywords and their matching folder keywords
-# You can expand this list to whatever makes sense for you
-keywords = [
-    "general accounting",
-    "audit",
-    "payroll",
-    "finance",
-    "risk"
-]
+# Manually map a keyword (partial match in filename) to actual folder name
+folder_mapping = {
+    "general accounting": "06 2025 General Accounting EOC",
+    "audit": "2025 Audit Wrapup",
+    "payroll": "July 2025 Payroll Submissions"
+}
 
-# Normalize everything to lowercase for easier comparison
-lower_keywords = [k.lower() for k in keywords]
-
-# Get all subfolders in the directory
-subfolders = [f for f in os.listdir(directory) if os.path.isdir(os.path.join(directory, f))]
-
-# Define file extensions
+# File types to include
 email_extensions = ['.msg', '.eml']
 excel_extensions = ['.xls', '.xlsx', '.xlsm', '.xlsb']
 
-# Loop through files in the directory
+# Normalize mapping for lowercase comparison
+normalized_mapping = {k.lower(): v for k, v in folder_mapping.items()}
+
+# Loop through each file in the directory
 for filename in os.listdir(directory):
     file_path = os.path.join(directory, filename)
 
+    # Skip if it's a directory
     if os.path.isdir(file_path):
         continue
 
     _, ext = os.path.splitext(filename)
     ext = ext.lower()
 
-    # Only process email and Excel files
-    if ext in email_extensions + excel_extensions:
-        file_lower = filename.lower()
+    # Skip non-email/non-excel files
+    if ext not in email_extensions + excel_extensions:
+        continue
 
-        matched = False
-        for keyword in lower_keywords:
-            if keyword in file_lower:
-                # Now look for a folder with this keyword
-                for folder in subfolders:
-                    if keyword in folder.lower():
-                        target_folder = os.path.join(directory, folder)
-                        destination = os.path.join(target_folder, filename)
-                        shutil.move(file_path, destination)
-                        print(f"Moved {filename} -> {folder}")
-                        matched = True
-                        break
-            if matched:
+    file_lower = filename.lower()
+    matched = False
+
+    for keyword, folder_name in normalized_mapping.items():
+        if keyword in file_lower:
+            target_folder = os.path.join(directory, folder_name)
+            if os.path.isdir(target_folder):
+                destination = os.path.join(target_folder, filename)
+                shutil.move(file_path, destination)
+                print(f"✅ Moved: {filename} → {folder_name}")
+                matched = True
+                break
+            else:
+                print(f"⚠️ Folder not found: {folder_name} for keyword '{keyword}'")
+                matched = True
                 break
 
-        if not matched:
-            print(f"⚠️ No matching folder found for: {filename}")
+    if not matched:
+        print(f"❌ No match for file: {filename}")
