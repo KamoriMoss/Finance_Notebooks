@@ -1,68 +1,47 @@
-import pandas as pd
-import time
-from datetime import datetime
-from alpha_vantage.timeseries import TimeSeries
+import os
+import shutil
+from difflib import get_close_matches
 
-#Code Limits you to 25 Free Requests per day
-# You'll need an API key from Alpha Vantage (free tier available)
-# Sign up at: https://www.alphavantage.co/support/#api-key
-API_KEY = "##########"  # Replace with your actual API key
+# 🔧 Set the directory with your files and folders
+directory = r"C:\path\to\your\directory"  # <--- update this
+log_file = os.path.join(directory, "file_move_log.txt")
 
-def get_stock_data(tickers):
-    """
-    Fetch current stock data for the given ticker symbols using Alpha Vantage
-    """
-    try:
-        ts = TimeSeries(key=API_KEY, output_format='pandas')
-        
-        results = {}
-        for ticker in tickers:
-            # Get intraday data (1min interval)
-            data, _ = ts.get_intraday(symbol=ticker, interval='1min', outputsize='compact')
-            latest_price = data['4. close'].iloc[0]  # Most recent close price
-            results[ticker] = latest_price
-            
-            # Add a small delay to avoid hitting API rate limits
-            time.sleep(0.2)
-            
-        return pd.Series(results)
-    except Exception as e:
-        print(f"Error fetching stock data: {e}")
-        return None
+# 📁 Get all subfolders
+folders = [f for f in os.listdir(directory) if os.path.isdir(os.path.join(directory, f))]
 
-def monitor_stocks(tickers, interval=60):
-    """
-    Continuously monitor stock data at specified interval (in seconds)
-    """
-    if isinstance(tickers, str):
-        tickers = [tickers]
-    
-    print(f"Starting stock monitoring for: {', '.join(tickers)}")
-    
-    try:
-        while True:
-            current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            print(f"\n--- {current_time} ---")
-            
-            stock_data = get_stock_data(tickers)
-            if stock_data is not None:
-                for ticker, price in stock_data.items():
-                    print(f"{ticker}: ${price:.2f}")
-            
-            # Alpha Vantage free tier has limitations (5 API calls per minute, 500 per day)
-            # Adjust interval accordingly to avoid hitting limits
-            time.sleep(interval)
-    except KeyboardInterrupt:
-        print("\nMonitoring stopped by user")
+# 📨 Supported file types
+allowed_extensions = ['.xls', '.xlsx', '.xlsm', '.xlsb', '.eml']
 
-# Example usage
-if __name__ == "__main__":
-    # List of stock symbols to monitor
-    stocks = ["AAPL", "AMD", "GOOGL", "AMZN", "TSLA"]
-    
-    # Monitor stocks with updates every 60 seconds
-    # Note: With 5 stocks, this will make 5 API calls each time
-    # Free tier allows 5 calls per minute, so interval should be >= 60
-    monitor_stocks(stocks, interval=60)
+# Start logging
+with open(log_file, 'w', encoding='utf-8') as log:
+    log.write("📁 Auto Fuzzy File Organizer Log\n")
+    log.write("=" * 50 + "\n\n")
 
-# Run this script to start monitoring stock prices in real-time
+    for filename in os.listdir(directory):
+        file_path = os.path.join(directory, filename)
+
+        # Skip folders
+        if os.path.isdir(file_path):
+            continue
+
+        # Check extension
+        _, ext = os.path.splitext(filename)
+        if ext.lower() not in allowed_extensions:
+            continue
+
+        # Fuzzy match filename (no extension) to folders
+        file_base = os.path.splitext(filename.lower())[0]
+        folder_matches = get_close_matches(file_base, [f.lower() for f in folders], n=1, cutoff=0.4)
+
+        if folder_matches:
+            # Find actual folder name (case-insensitive match)
+            matched_folder = next(f for f in folders if f.lower() == folder_matches[0])
+            target_path = os.path.join(directory, matched_folder, filename)
+
+            # Move the file
+            shutil.move(file_path, target_path)
+            log.write(f"✅ Moved: {filename} → {matched_folder}\n")
+        else:
+            log.write(f"❌ No fuzzy match for: {filename}\n")
+
+print("✅ Done! File move log written to file_move_log.txt")
