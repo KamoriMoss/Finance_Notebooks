@@ -1,0 +1,54 @@
+import os
+import pandas as pd
+import re
+
+def search_value_excel(directory, search_values):
+    # Prepare regex pattern for all search values
+    pattern = '|'.join(map(re.escape, search_values))
+    
+    # Store all matches here
+    result_result = pd.DataFrame()
+    
+    # Loop through all files in directory
+    for file in os.listdir(directory):
+        if file.lower().endswith(('.xlsx', '.xlsm', '.xls')):
+            file_path = os.path.join(directory, file)
+            
+            try:
+                excel_data = pd.ExcelFile(file_path)
+                
+                # Loop through all sheets
+                for sheet_name in excel_data.sheet_names:
+                    sheet_df = excel_data.parse(sheet_name)
+                    
+                    # Convert all data to string for matching
+                    matching_mask = sheet_df.apply(
+                        lambda col: col.astype(str).str.contains(pattern, case=False, na=False)
+                    ).any(axis=1)
+                    
+                    # Filter rows that matched
+                    matching_rows = sheet_df[matching_mask]
+                    
+                    if not matching_rows.empty:
+                        matching_rows['Source File'] = file
+                        matching_rows['Sheet Name'] = sheet_name
+                        result_result = pd.concat([result_result, matching_rows], ignore_index=True)
+            
+            except Exception as e:
+                print(f"Error reading {file}: {e}")
+    
+    return result_result
+
+
+# === Usage ===
+directory_path = r"\\connect.truist.com\GLOSS\LowmanRoot\StateFarm\InternalReporting\CEX Templates"
+
+
+result_df = search_value_excel(directory_path, value_to_search)
+
+# Save or print results
+if not result_df.empty:
+    result_df.to_excel("matching_rows.xlsx", index=False)
+    print("✅ Matching rows saved to matching_rows.xlsx")
+else:
+    print("❌ No matching rows found")
