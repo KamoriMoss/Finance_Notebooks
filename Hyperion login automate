@@ -1,0 +1,31 @@
+' === Helper: Fetch username or password from Windows Credential Manager ===
+Private Function GetCredential(Field As String) As String
+    Dim objShell As Object
+    Dim execObj As Object
+    Dim output As String
+    
+    ' Call PowerShell to return either .UserName or .Password
+    Set objShell = CreateObject("WScript.Shell")
+    Set execObj = objShell.Exec("powershell -command ""(Get-StoredCredential -Target 'Hyperion')." & Field & """")
+    
+    output = execObj.StdOut.ReadAll
+    GetCredential = Trim(output)
+End Function
+
+' === Main Smart View Login Macro ===
+Sub LoginToHyperion()
+    Dim userName As String, password As String, conn As Long
+    
+    ' Pull credentials from Windows Credential Manager (Target = "Hyperion")
+    userName = GetCredential("UserName")
+    password = GetCredential("Password")
+    
+    ' Use Smart View HypConnect API
+    conn = HypConnect(Empty, userName, password, "YourConnectionName")
+    
+    If conn = 0 Then
+        MsgBox "Login successful!", vbInformation
+    Else
+        MsgBox "Login failed. Error code: " & conn, vbCritical
+    End If
+End Sub
